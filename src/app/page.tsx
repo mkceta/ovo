@@ -1,103 +1,421 @@
-import Image from "next/image";
+'use client'
+
+import { useState, useEffect } from 'react'
+
+interface Batch {
+  id: string
+  status: 'active' | 'completed'
+  confirmed_count: number
+  confirmations_needed: number
+  pending_until: string | null
+  started_at: string
+  created_at: string
+}
+
+interface TodayStatus {
+  batches: {
+    active: number
+    completed: number
+    total: number
+  }
+  outageVotes: {
+    outage: number
+    working: number
+    total: number
+  }
+  ratings: {
+    count: number
+    average: number | null
+    sabor: number | null
+    jugosidad: number | null
+    cuajada: number | null
+    temperatura: number | null
+  }
+  recentBatches: Batch[]
+}
+
+interface Rating {
+  sabor: number
+  jugosidad: number
+  cuajada: number
+  temperatura: number
+  comment?: string
+}
 
 export default function Home() {
-  return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const [fingerprint, setFingerprint] = useState<string>('')
+  const [todayStatus, setTodayStatus] = useState<TodayStatus | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [message, setMessage] = useState('')
+  const [showRatingForm, setShowRatingForm] = useState(false)
+  const [selectedBatch, setSelectedBatch] = useState<Batch | null>(null)
+  const [rating, setRating] = useState<Rating>({
+    sabor: 5,
+    jugosidad: 5,
+    cuajada: 5,
+    temperatura: 5,
+    comment: ''
+  })
+  const [availabilityState, setAvailabilityState] = useState({
+    isAvailable: false,
+    availableVotes: 0,
+    unavailableVotes: 0
+  })
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  // Generate a simple fingerprint
+  useEffect(() => {
+    const fp = Math.random().toString(36).substring(2) + Date.now().toString(36)
+    setFingerprint(fp)
+    loadTodayStatus()
+    
+    // Refresh data every 30 seconds
+    const interval = setInterval(loadTodayStatus, 30000)
+    return () => clearInterval(interval)
+  }, [])
+
+  // Load today's status
+  const loadTodayStatus = async () => {
+    try {
+      const [statusResponse, availabilityResponse] = await Promise.all([
+        fetch('/api/today/status'),
+        fetch('/api/availability')
+      ])
+      
+      if (statusResponse.ok) {
+        const data = await statusResponse.json()
+        setTodayStatus(data)
+      }
+      
+      if (availabilityResponse.ok) {
+        const availabilityData = await availabilityResponse.json()
+        setAvailabilityState({
+          isAvailable: availabilityData.isAvailable,
+          availableVotes: availabilityData.availableVotes,
+          unavailableVotes: availabilityData.unavailableVotes
+        })
+      }
+    } catch (error) {
+      console.error('Error loading status:', error)
+    }
+  }
+
+
+  // Vote outage
+  const voteOutage = async (voteType: 'outage' | 'working') => {
+    setLoading(true)
+    try {
+      const response = await fetch('/api/outages/vote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fingerprint,
+          voteType
+        })
+      })
+      
+      const data = await response.json()
+      if (response.ok) {
+        setMessage(`Voto registrado: ${data.votes.outage} sin tortillas, ${data.votes.working} disponibles`)
+        loadTodayStatus()
+      } else {
+        setMessage(`Error: ${data.error}`)
+      }
+    } catch (error) {
+      setMessage('Error al votar')
+    }
+    setLoading(false)
+  }
+
+  // End tortilla availability
+  const endTortillaAvailability = async () => {
+    setLoading(true)
+    try {
+      const response = await fetch('/api/availability/end', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fingerprint })
+      })
+      
+      const data = await response.json()
+      if (response.ok) {
+        if (data.finished) {
+          setMessage('Tortilla marcada como agotada (2 votos) - Estado reseteado')
+        } else {
+          setMessage(data.message)
+        }
+        loadTodayStatus()
+      } else {
+        setMessage(`Error: ${data.error}`)
+      }
+    } catch (error) {
+      setMessage('Error al marcar tortilla como agotada')
+    }
+    setLoading(false)
+  }
+
+
+  // Calculate current ratings without decay
+  const getCurrentRatings = () => {
+    if (!todayStatus?.ratings || todayStatus.ratings.count === 0) return null
+    
+    return {
+      average: todayStatus.ratings.average || null,
+      sabor: todayStatus.ratings.sabor || null,
+      jugosidad: todayStatus.ratings.jugosidad || null,
+      cuajada: todayStatus.ratings.cuajada || null,
+      temperatura: todayStatus.ratings.temperatura || null
+    }
+  }
+
+  const currentRatings = getCurrentRatings()
+
+  // Submit rating
+  const submitRating = async () => {
+    setLoading(true)
+    try {
+      const response = await fetch('/api/ratings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          batchId: null, // No longer needed
+          sabor: rating.sabor,
+          jugosidad: rating.jugosidad,
+          cuajada: rating.cuajada,
+          temperatura: rating.temperatura,
+          comment: rating.comment || null,
+          fingerprint
+        })
+      })
+      
+      const data = await response.json()
+      if (response.ok) {
+        setMessage('¡Valoración enviada correctamente!')
+        setShowRatingForm(false)
+        setSelectedBatch(null)
+        setRating({ sabor: 5, jugosidad: 5, cuajada: 5, temperatura: 5, comment: '' })
+        loadTodayStatus()
+      } else {
+        setMessage(`Error: ${data.error}`)
+      }
+    } catch (error) {
+      setMessage('Error al enviar valoración')
+    }
+    setLoading(false)
+  }
+
+
+  return (
+    <div className="app">
+      <div className="header">
+        <h2>, , ,</h2>
+        <h1>OvO</h1>
+        <p>Valora la tortilla de la FIC!</p>
+      </div>
+
+      <div className="main-content">
+        {/* Tortilla Status */}
+        <div className={`tortilla-status ${availabilityState.isAvailable ? 'available' : 'unavailable'}`}>
+          <div className="status-indicator">
+            <div className={`status-dot ${availabilityState.isAvailable ? 'available' : 'unavailable'}`}></div>
+            <h2>{availabilityState.isAvailable ? 'HAY TORTILLA' : 'NO HAY TORTILLA'}</h2>
+          </div>
+          
+          <div className="vote-counts">
+            {!availabilityState.isAvailable && (
+              // When no tortilla, show only available votes if > 0
+              availabilityState.availableVotes > 0 ? (
+                <div className="vote-item">
+                  <span className="vote-number available">{availabilityState.availableVotes}</span>
+                  <span className="vote-label">persona{availabilityState.availableVotes > 1 ? 's' : ''} dice{availabilityState.availableVotes > 1 ? 'n' : ''} que hay tortilla</span>
+                </div>
+              ) : (
+                <div className="no-votes">
+                  <span className="no-votes-text">Nadie ha votado aún</span>
+                </div>
+              )
+            )}
+          </div>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+
+        {/* Current Ratings Display */}
+        {availabilityState.isAvailable && currentRatings && (
+          <div className="ratings-display">
+            <h3>Puntuación Actual</h3>
+            <div className="overall-rating">
+              <div className="rating-value">{currentRatings.average?.toFixed(1) || 'N/A'}</div>
+              <div className="rating-label">Puntuación Media</div>
+              {todayStatus?.ratings.count && (
+                <div className="rating-count">
+                  Basado en {todayStatus.ratings.count} valoración{todayStatus.ratings.count > 1 ? 'es' : ''}
+                </div>
+              )}
+            </div>
+            
+            <div className="ratings-chart">
+              <div className="chart-item">
+                <div className="chart-label">Sabor</div>
+                <div className="chart-bar">
+                  <div 
+                    className="chart-fill" 
+                    style={{ width: `${((currentRatings.sabor || 0) / 10) * 100}%` }}
+                  ></div>
+                </div>
+                <div className="chart-value">{currentRatings.sabor?.toFixed(1) || 'N/A'}</div>
+              </div>
+              
+              <div className="chart-item">
+                <div className="chart-label">Jugosidad</div>
+                <div className="chart-bar">
+                  <div 
+                    className="chart-fill" 
+                    style={{ width: `${((currentRatings.jugosidad || 0) / 10) * 100}%` }}
+                  ></div>
+                </div>
+                <div className="chart-value">{currentRatings.jugosidad?.toFixed(1) || 'N/A'}</div>
+              </div>
+              
+              <div className="chart-item">
+                <div className="chart-label">Cuajada</div>
+                <div className="chart-bar">
+                  <div 
+                    className="chart-fill" 
+                    style={{ width: `${((currentRatings.cuajada || 0) / 10) * 100}%` }}
+                  ></div>
+                </div>
+                <div className="chart-value">{currentRatings.cuajada?.toFixed(1) || 'N/A'}</div>
+              </div>
+              
+              <div className="chart-item">
+                <div className="chart-label">Temperatura</div>
+                <div className="chart-bar">
+                  <div 
+                    className="chart-fill" 
+                    style={{ width: `${((currentRatings.temperatura || 0) / 10) * 100}%` }}
+                  ></div>
+                </div>
+                <div className="chart-value">{currentRatings.temperatura?.toFixed(1) || 'N/A'}</div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Action Buttons */}
+        {!availabilityState.isAvailable && (
+          <div className="action-section">
+            <div className="action-grid single-button">
+              <button
+                onClick={() => voteOutage('working')}
+                disabled={loading}
+                className="action-btn success"
+              >
+                <span>Disponible</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Rating Available */}
+        {availabilityState.isAvailable && (
+          <div className="rating-available">
+            <h3>¡2+ personas confirman que hay tortillas!</h3>
+            <p>Ahora puedes valorar la calidad</p>
+            <div className="rating-actions">
+              <button
+                onClick={() => setShowRatingForm(true)}
+                className="rate-now-btn"
+                disabled={loading}
+              >
+                Valorar Tortilla
+              </button>
+              <button
+                onClick={endTortillaAvailability}
+                className="end-tortilla-btn"
+                disabled={loading}
+              >
+                Se acabó la tortilla
+              </button>
+            </div>
+          </div>
+        )}
+
+
+        {/* Rating Form */}
+        {showRatingForm && (
+          <div className="rating-modal">
+            <div className="rating-content">
+              <div className="rating-header">
+                <h3>Valorar Tortilla</h3>
+                <button 
+                  className="close-btn"
+                  onClick={() => {
+                    setShowRatingForm(false)
+                    setRating({ sabor: 5, jugosidad: 5, cuajada: 5, temperatura: 5, comment: '' })
+                  }}
+                >
+                  ×
+                </button>
+              </div>
+              
+              <div className="rating-criteria">
+                {[
+                  { key: 'sabor', label: 'Sabor' },
+                  { key: 'jugosidad', label: 'Jugosidad' },
+                  { key: 'cuajada', label: 'Cuajada' },
+                  { key: 'temperatura', label: 'Temperatura' }
+                ].map(({ key, label }) => (
+                  <div key={key} className="criterion">
+                    <div className="criterion-header">
+                      <span className="criterion-label">{label}</span>
+                      <span className="criterion-value">{rating[key as keyof Rating]}/10</span>
+                    </div>
+                    <div className="slider-container">
+                      <input
+                        type="range"
+                        min="1"
+                        max="10"
+                        value={rating[key as keyof Rating]}
+                        onChange={(e) => setRating(prev => ({ ...prev, [key]: parseInt(e.target.value) }))}
+                        className="slider"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="comment-section">
+                <textarea
+                  value={rating.comment}
+                  onChange={(e) => setRating(prev => ({ ...prev, comment: e.target.value }))}
+                  maxLength={120}
+                  placeholder="Comentario opcional..."
+                  className="comment-input"
+                />
+                <div className="char-count">
+                  {rating.comment?.length || 0}/120
+                </div>
+              </div>
+
+              <div className="rating-actions">
+                <button
+                  onClick={submitRating}
+                  disabled={loading}
+                  className="submit-rating-btn"
+                >
+                  {loading ? 'Enviando...' : 'Enviar Valoración'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Message */}
+        {message && (
+          <div className="message-toast">
+            {message}
+          </div>
+        )}
+      </div>
     </div>
-  );
+  )
 }
+
