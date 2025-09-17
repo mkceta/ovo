@@ -369,7 +369,7 @@ export default function Home() {
         {/* Comments Section */}
         {availabilityState.isAvailable && (
           <div className="comments-section">
-            <h3>Comentarios de hoy</h3>
+            <h3>Comentarios</h3>
             {loadingComments ? (
               <div className="no-comments">Cargando comentarios...</div>
             ) : comments.length > 0 ? (
@@ -419,7 +419,8 @@ export default function Home() {
               </>
             ) : (
               <div className="no-comments">
-                Aún no hay comentarios para hoy. ¡Sé el primero en valorar!
+                Aún no hay comentarios para esta tortilla.
+                ¡Sé el primero en valorar!
               </div>
             )}
           </div>
@@ -444,7 +445,7 @@ export default function Home() {
         {availabilityState.isAvailable && (
           <div className="rating-available">
             <h3>¡LÁZARO TE ESPERA!</h3>
-            <p>¡Pídete un pincho de tortilla y valóralo!</p>
+            <p>¡Pídete un pinchito de tortilla y valóralo!</p>
             <div className="rating-actions">
               <button
                 onClick={() => setShowRatingForm(true)}

@@ -620,6 +620,7 @@ button {
 
 .slider {
   width: 100%;
+  /* Make the input tall enough to fully contain the thumb */
   height: 6px;
   border-radius: 3px;
   background: #333333;
@@ -637,6 +638,9 @@ button {
   background: #333333;
   border: none;
   margin: 0;
+  /* Vertically center the track inside the taller input */
+  margin-top: calc((var(--slider-thumb-size) - 6px) / 2);
+  margin-bottom: calc((var(--slider-thumb-size) - 6px) / 2);
 }
 
 .slider::-webkit-slider-thumb {
@@ -667,6 +671,9 @@ button {
   border-radius: 3px;
   background: #333333;
   border: none;
+  /* Vertically center the track inside the taller input */
+  margin-top: calc((var(--slider-thumb-size) - 6px) / 2);
+  margin-bottom: calc((var(--slider-thumb-size) - 6px) / 2);
 }
 
 /* Remove extra focus ring spacing in Firefox */
