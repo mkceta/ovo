@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "OVO",
+  title: "OvO",
   description: "Consulta y valora en tiempo real la tortilla de la cafetería de la FIC.",
   icons: {
     icon: "/src/app/favicon.ico", 
@@ -29,7 +29,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "OVO",
+    title: "OvO",
     description: "Consulta y valora en tiempo real la tortilla de la cafetería de la FIC.",
   },
 };
