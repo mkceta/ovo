@@ -331,6 +331,17 @@ export default function Home() {
               </div>
               
               <div className="chart-item">
+                <div className="chart-label">Lázaro</div>
+                <div className="chart-bar">
+                  <div 
+                    className="chart-fill" 
+                    style={{ width: `${((currentRatings.cuajada || 0) / 10) * 100}%` }}
+                  ></div>
+                </div>
+                <div className="chart-value">{currentRatings.cuajada?.toFixed(1) || 'N/A'}</div>
+              </div>
+              
+              <div className="chart-item">
                 <div className="chart-label">Jugosidad</div>
                 <div className="chart-bar">
                   <div 
@@ -339,17 +350,6 @@ export default function Home() {
                   ></div>
                 </div>
                 <div className="chart-value">{currentRatings.jugosidad?.toFixed(1) || 'N/A'}</div>
-              </div>
-              
-              <div className="chart-item">
-                <div className="chart-label">Cuajada</div>
-                <div className="chart-bar">
-                  <div 
-                    className="chart-fill" 
-                    style={{ width: `${((currentRatings.cuajada || 0) / 10) * 100}%` }}
-                  ></div>
-                </div>
-                <div className="chart-value">{currentRatings.cuajada?.toFixed(1) || 'N/A'}</div>
               </div>
               
               <div className="chart-item">
@@ -401,12 +401,12 @@ export default function Home() {
                           <span className="comment-detail-value">{comment.scores.sabor}</span>
                         </div>
                         <div className="comment-detail-item">
-                          <span className="comment-detail-label">Jugosidad</span>
-                          <span className="comment-detail-value">{comment.scores.jugosidad}</span>
+                          <span className="comment-detail-label">Lázaro</span>
+                          <span className="comment-detail-value">{comment.scores.cuajada}</span>
                         </div>
                         <div className="comment-detail-item">
-                          <span className="comment-detail-label">Cuajada</span>
-                          <span className="comment-detail-value">{comment.scores.cuajada}</span>
+                          <span className="comment-detail-label">Jugosidad</span>
+                          <span className="comment-detail-value">{comment.scores.jugosidad}</span>
                         </div>
                         <div className="comment-detail-item">
                           <span className="comment-detail-label">Temperatura</span>
@@ -467,8 +467,17 @@ export default function Home() {
 
         {/* Rating Form */}
         {showRatingForm && (
-          <div className="rating-modal">
-            <div className="rating-content">
+          <div 
+            className="rating-modal"
+            onClick={() => {
+              setShowRatingForm(false)
+              setRating({ sabor: 5, jugosidad: 5, cuajada: 5, temperatura: 5, comment: '' })
+            }}
+          >
+            <div 
+              className="rating-content"
+              onClick={(e) => e.stopPropagation()}
+            >
               <div className="rating-header">
                 <h3>Valorar Tortilla</h3>
                 <button 
@@ -485,8 +494,8 @@ export default function Home() {
               <div className="rating-criteria">
                 {[
                   { key: 'sabor', label: 'Sabor' },
+                  { key: 'cuajada', label: 'Lázaro' },
                   { key: 'jugosidad', label: 'Jugosidad' },
-                  { key: 'cuajada', label: 'Cuajada' },
                   { key: 'temperatura', label: 'Temperatura' }
                 ].map(({ key, label }) => (
                   <div key={key} className="criterion">
@@ -497,10 +506,15 @@ export default function Home() {
                     <div className="slider-container">
                       <input
                         type="range"
-                        min="1"
+                        min={0}
                         max="10"
+                        step={1}
                         value={rating[key as keyof Rating]}
-                        onChange={(e) => setRating(prev => ({ ...prev, [key]: parseInt(e.target.value) }))}
+                        onChange={(e) => {
+                          const next = parseInt(e.target.value)
+                          const safe = key === 'cuajada' ? Math.max(5, next) : Math.max(1, next)
+                          setRating(prev => ({ ...prev, [key]: safe }))
+                        }}
                         className="slider"
                       />
                     </div>

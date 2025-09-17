@@ -11,15 +11,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'missing_required_fields' }, { status: 400 })
     }
 
-    // Validate rating values (1-10)
+    // Validate rating values: sabor, jugosidad, temperatura in 1-10; cuajada in 5-10
     if (sabor < 1 || sabor > 10 || jugosidad < 1 || jugosidad > 10 || 
-        cuajada < 1 || cuajada > 10 || temperatura < 1 || temperatura > 10) {
+        cuajada < 5 || cuajada > 10 || temperatura < 1 || temperatura > 10) {
       return NextResponse.json({ error: 'rating_out_of_range' }, { status: 400 })
     }
 
-    // Validate rating values (1-10)
+    // Validate integer values and per-field ranges
     const ratings = [sabor, jugosidad, cuajada, temperatura]
-    if (ratings.some(r => r < 1 || r > 10 || !Number.isInteger(r))) {
+    const inRange = (s: number, j: number, c: number, t: number) =>
+      (s >= 1 && s <= 10) && (j >= 1 && j <= 10) && (c >= 5 && c <= 10) && (t >= 1 && t <= 10)
+    if (!inRange(sabor, jugosidad, cuajada, temperatura) || ratings.some(r => !Number.isInteger(r))) {
       return NextResponse.json({ error: 'invalid_rating_values' }, { status: 400 })
     }
 
