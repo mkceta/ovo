@@ -441,8 +441,8 @@ export default function Home() {
         {/* Rating Available */}
         {availabilityState.isAvailable && (
           <div className="rating-available">
-            <h3>¡2+ personas confirman que hay tortillas!</h3>
-            <p>Ahora puedes valorar la calidad</p>
+            <h3>¡LÁZARO TE ESPERA!</h3>
+            <p>¡Pídete un pincho de tortilla y valóralo!</p>
             <div className="rating-actions">
               <button
                 onClick={() => setShowRatingForm(true)}
