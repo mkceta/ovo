@@ -42,6 +42,19 @@ interface Rating {
   comment?: string
 }
 
+interface Comment {
+  id: string
+  comment: string
+  overallScore: number
+  scores: {
+    sabor: number
+    jugosidad: number
+    cuajada: number
+    temperatura: number
+  }
+  createdAt: string
+}
+
 export default function Home() {
   const [fingerprint, setFingerprint] = useState<string>('')
   const [todayStatus, setTodayStatus] = useState<TodayStatus | null>(null)
@@ -61,6 +74,8 @@ export default function Home() {
     availableVotes: 0,
     unavailableVotes: 0
   })
+  const [comments, setComments] = useState<Comment[]>([])
+  const [loadingComments, setLoadingComments] = useState(false)
 
   // Generate a simple fingerprint
   useEffect(() => {
@@ -72,6 +87,13 @@ export default function Home() {
     const interval = setInterval(loadTodayStatus, 30000)
     return () => clearInterval(interval)
   }, [])
+
+  // Auto-hide message toast after 3 seconds
+  useEffect(() => {
+    if (!message) return
+    const t = setTimeout(() => setMessage(''), 3000)
+    return () => clearTimeout(t)
+  }, [message])
 
   // Load today's status
   const loadTodayStatus = async () => {
@@ -93,10 +115,30 @@ export default function Home() {
           availableVotes: availabilityData.availableVotes,
           unavailableVotes: availabilityData.unavailableVotes
         })
+        
+        // Load comments only if tortilla is available
+        if (availabilityData.isAvailable) {
+          loadComments()
+        }
       }
     } catch (error) {
       console.error('Error loading status:', error)
     }
+  }
+
+  // Load comments
+  const loadComments = async () => {
+    setLoadingComments(true)
+    try {
+      const response = await fetch('/api/ratings/comments')
+      if (response.ok) {
+        const data = await response.json()
+        setComments(data.comments || [])
+      }
+    } catch (error) {
+      console.error('Error loading comments:', error)
+    }
+    setLoadingComments(false)
   }
 
 
@@ -169,6 +211,26 @@ export default function Home() {
 
   const currentRatings = getCurrentRatings()
 
+  // Format time for comments
+  const formatCommentTime = (dateString: string) => {
+    const date = new Date(dateString)
+    const now = new Date()
+    const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60))
+    
+    if (diffInMinutes < 1) return 'Ahora mismo'
+    if (diffInMinutes < 60) return `Hace ${diffInMinutes} min`
+    
+    const diffInHours = Math.floor(diffInMinutes / 60)
+    if (diffInHours < 24) return `Hace ${diffInHours}h`
+    
+    return date.toLocaleDateString('es-ES', { 
+      day: 'numeric', 
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  }
+
   // Submit rating
   const submitRating = async () => {
     setLoading(true)
@@ -194,6 +256,10 @@ export default function Home() {
         setSelectedBatch(null)
         setRating({ sabor: 5, jugosidad: 5, cuajada: 5, temperatura: 5, comment: '' })
         loadTodayStatus()
+        // Reload comments if tortilla is available
+        if (availabilityState.isAvailable) {
+          loadComments()
+        }
       } else {
         setMessage(`Error: ${data.error}`)
       }
@@ -295,6 +361,65 @@ export default function Home() {
                 <div className="chart-value">{currentRatings.temperatura?.toFixed(1) || 'N/A'}</div>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Comments Section */}
+        {availabilityState.isAvailable && (
+          <div className="comments-section">
+            <h3>Comentarios de hoy</h3>
+            {loadingComments ? (
+              <div className="no-comments">Cargando comentarios...</div>
+            ) : comments.length > 0 ? (
+              <>
+                <div className="comments-count">
+                  {comments.length} comentario{comments.length > 1 ? 's' : ''}
+                </div>
+                <div className="comments-list">
+                  {comments.map((comment) => (
+                    <div key={comment.id} className="comment-item">
+                      <div className="comment-header">
+                        <div className="comment-score">
+                          <span className="comment-overall-score">
+                            {comment.overallScore}/10
+                          </span>
+                        </div>
+                        <span className="comment-time">
+                          {formatCommentTime(comment.createdAt)}
+                        </span>
+                      </div>
+                      
+                      <div className="comment-text">
+                        "{comment.comment}"
+                      </div>
+                      
+                      <div className="comment-details">
+                        <div className="comment-detail-item">
+                          <span className="comment-detail-label">Sabor</span>
+                          <span className="comment-detail-value">{comment.scores.sabor}</span>
+                        </div>
+                        <div className="comment-detail-item">
+                          <span className="comment-detail-label">Jugosidad</span>
+                          <span className="comment-detail-value">{comment.scores.jugosidad}</span>
+                        </div>
+                        <div className="comment-detail-item">
+                          <span className="comment-detail-label">Cuajada</span>
+                          <span className="comment-detail-value">{comment.scores.cuajada}</span>
+                        </div>
+                        <div className="comment-detail-item">
+                          <span className="comment-detail-label">Temperatura</span>
+                          <span className="comment-detail-value">{comment.scores.temperatura}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <div className="no-comments">
+                Aún no hay comentarios para hoy. ¡Sé el primero en valorar!
+              </div>
+            )}
           </div>
         )}
 

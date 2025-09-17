@@ -34,11 +34,21 @@ CREATE TABLE IF NOT EXISTS ratings (
   jugosidad INTEGER NOT NULL CHECK (jugosidad >= 1 AND jugosidad <= 10),
   cuajada INTEGER NOT NULL CHECK (cuajada >= 1 AND cuajada <= 10),
   temperatura INTEGER NOT NULL CHECK (temperatura >= 1 AND temperatura <= 10),
+  score_overall INTEGER,
   comment TEXT CHECK (LENGTH(comment) <= 120),
   client_fingerprint TEXT NOT NULL,
   ip_hash TEXT NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- Add score_overall column if it doesn't exist
+DO $$ 
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                   WHERE table_name='ratings' AND column_name='score_overall') THEN
+        ALTER TABLE ratings ADD COLUMN score_overall INTEGER;
+    END IF;
+END $$;
 
 -- Outage votes table (community reporting)
 CREATE TABLE IF NOT EXISTS outage_votes (
