@@ -159,7 +159,7 @@ export default function Home() {
       
       const data = await response.json()
       if (response.ok) {
-        setMessage(`Voto registrado: ${data.votes.outage} sin tortillas, ${data.votes.working} disponibles`)
+        setMessage(`Voto registrado: ${data.votes.outage} no hay tortilla, ${data.votes.working} hay tortilla`)
         loadTodayStatus()
       } else {
         setMessage(`Error: ${data.error}`)
@@ -294,11 +294,11 @@ export default function Home() {
               availabilityState.availableVotes > 0 ? (
                 <div className="vote-item">
                   <span className="vote-number available">{availabilityState.availableVotes}</span>
-                  <span className="vote-label">persona{availabilityState.availableVotes > 1 ? 's' : ''} dice{availabilityState.availableVotes > 1 ? 'n' : ''} que hay tortilla</span>
+                  <span className="vote-label">persona{availabilityState.availableVotes > 1 ? 's' : ''} dice{availabilityState.availableVotes > 1 ? 'n' : ''} que hay tortilla...</span>
                 </div>
               ) : (
                 <div className="no-votes">
-                  <span className="no-votes-text">Nadie ha votado aún</span>
+                  <span className="no-votes-text">Si ves tortilla haz click en el botón de abajo.</span>
                 </div>
               )
             )}
@@ -435,7 +435,7 @@ export default function Home() {
                 disabled={loading}
                 className="action-btn success"
               >
-                <span>Disponible</span>
+                <span>HAY TORTILLA!</span>
               </button>
             </div>
           </div>
