@@ -419,8 +419,7 @@ export default function Home() {
               </>
             ) : (
               <div className="no-comments">
-                Aún no hay comentarios para esta tortilla.
-                ¡Sé el primero en valorar!
+                Nadie ha hablado de esta tortilla.<br/>¡Sé el primero en comentar!
               </div>
             )}
           </div>
