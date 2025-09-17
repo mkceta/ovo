@@ -940,6 +940,19 @@ body {
   background: rgba(255, 215, 0, 0.5);
 }
 
+/* Lazaro image positioning (desktop default) */
+.lazaro-image {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  width: 20vw; /* proportional to viewport width */
+  height: auto;
+  object-fit: contain;
+  pointer-events: none;
+  user-select: none;
+  z-index: 900;
+}
+
 @media (max-width: 640px) {
   .app {
     padding: 0.5rem;
@@ -1017,5 +1030,14 @@ body {
   
   .comment-item {
     padding: 0.875rem;
+  }
+
+  /* On mobile, make Lazaro non-fixed and flow at the bottom with full width */
+  .lazaro-image {
+    position: static; /* part of document flow */
+    display: block;
+    width: 100%;
+    height: auto;
+    margin: 0;
   }
 }

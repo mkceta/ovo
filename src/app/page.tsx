@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import Image from 'next/image'
+import lazaroImg from './lazaro.png'
 
 interface Batch {
   id: string
@@ -539,6 +541,14 @@ export default function Home() {
           </div>
         )}
       </div>
+
+      {/* Lázaro mascot image */}
+      <Image
+        src={lazaroImg}
+        alt="Lázaro"
+        className="lazaro-image"
+        priority
+      />
     </div>
   )
 }
