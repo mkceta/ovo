@@ -240,13 +240,12 @@ export default function Home() {
         {/* Current Ratings Display */}
         {availabilityState.isAvailable && currentRatings && (
           <div className="ratings-display">
-            <h3>Puntuación Actual</h3>
+            <h3>Puntuación Media</h3>
             <div className="overall-rating">
               <div className="rating-value">{currentRatings.average?.toFixed(1) || 'N/A'}</div>
-              <div className="rating-label">Puntuación Media</div>
               {todayStatus?.ratings.count && (
                 <div className="rating-count">
-                  Basado en {todayStatus.ratings.count} valoración{todayStatus.ratings.count > 1 ? 'es' : ''}
+                  Basada en {todayStatus.ratings.count} valoración{todayStatus.ratings.count > 1 ? 'es' : ''}
                 </div>
               )}
             </div>
@@ -325,7 +324,7 @@ export default function Home() {
                 className="rate-now-btn"
                 disabled={loading}
               >
-                Valorar Tortilla
+                Valorar tortilla
               </button>
               <button
                 onClick={endTortillaAvailability}
