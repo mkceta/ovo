@@ -23,6 +23,24 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'rate_limited' }, { status: 429 })
     }
 
+    // Additional protection: prevent same fingerprint from declaring 'outage' twice in a row
+    if (voteType === 'outage') {
+      const windowStartIso = new Date(Date.now() - 30 * 60 * 1000).toISOString()
+      const { data: lastOutageVote, error: lastVoteError } = await supabaseAdmin
+        .from('outage_votes')
+        .select('fingerprint, created_at')
+        .eq('is_active', true)
+        .eq('vote_type', 'outage')
+        .gt('created_at', windowStartIso)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (!lastVoteError && lastOutageVote && lastOutageVote.fingerprint === fingerprint) {
+        return NextResponse.json({ error: 'rate_limited_consecutive_outage', message: 'No puedes marcar "no hay tortilla" dos veces seguidas.' }, { status: 429 })
+      }
+    }
+
     // Insert outage vote
     const { error } = await supabaseAdmin.from('outage_votes').insert({
       fingerprint: fingerprint,

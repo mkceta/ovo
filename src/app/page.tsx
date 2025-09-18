@@ -89,12 +89,19 @@ export default function Home() {
 
   // Generate a simple fingerprint
   useEffect(() => {
-    const fp = Math.random().toString(36).substring(2) + Date.now().toString(36)
+    let fp = ''
+    try {
+      fp = localStorage.getItem('ovo_fp') || ''
+    } catch {}
+    if (!fp) {
+      fp = Math.random().toString(36).substring(2) + Date.now().toString(36)
+      try { localStorage.setItem('ovo_fp', fp) } catch {}
+    }
     setFingerprint(fp)
     loadTodayStatus()
     
-    // Refresh data every 30 seconds
-    const interval = setInterval(loadTodayStatus, 30000)
+    // Refresh data every 2.5 seconds
+    const interval = setInterval(loadTodayStatus, 2500)
     return () => clearInterval(interval)
   }, [])
 

@@ -11,14 +11,30 @@ export async function POST(req: NextRequest) {
     }
 
     // Check if there are already votes for "outage" (tortilla finished)
+    const windowStartIso = new Date(Date.now() - 30 * 60 * 1000).toISOString() // Last 30 minutes
     const { data: outageVotes } = await supabaseAdmin
       .from('outage_votes')
       .select('vote_type')
       .eq('is_active', true)
       .eq('vote_type', 'outage')
-      .gt('created_at', new Date(Date.now() - 30 * 60 * 1000).toISOString()) // Last 30 minutes
+      .gt('created_at', windowStartIso)
 
     const outageCount = outageVotes?.length || 0
+
+    // Rate limit: prevent the same fingerprint from voting "outage" twice in a row
+    const { data: lastOutageVote, error: lastVoteError } = await supabaseAdmin
+      .from('outage_votes')
+      .select('fingerprint, created_at')
+      .eq('is_active', true)
+      .eq('vote_type', 'outage')
+      .gt('created_at', windowStartIso)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (!lastVoteError && lastOutageVote && lastOutageVote.fingerprint === fingerprint) {
+      return NextResponse.json({ error: 'rate_limited_consecutive_outage', message: 'No puedes marcar "no hay tortilla" dos veces seguidas.' }, { status: 429 })
+    }
 
     // Add the current vote
     const { error: insertError } = await supabaseAdmin
