@@ -50,6 +50,27 @@ BEGIN
     END IF;
 END $$;
 
+-- Add image_url column to ratings if it doesn't exist (used by API)
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'ratings' AND column_name = 'image_url'
+    ) THEN
+        ALTER TABLE ratings ADD COLUMN image_url TEXT;
+    END IF;
+END $$;
+
+-- Comment likes table (likes for ratings with comments)
+CREATE TABLE IF NOT EXISTS comment_likes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  rating_id UUID NOT NULL REFERENCES ratings(id) ON DELETE CASCADE,
+  client_fingerprint TEXT NOT NULL,
+  ip_hash TEXT NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE (rating_id, client_fingerprint)
+);
+
 -- Outage votes table (community reporting)
 CREATE TABLE IF NOT EXISTS outage_votes (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -137,12 +158,14 @@ CREATE INDEX IF NOT EXISTS idx_ratings_batch_id ON ratings(batch_id);
 CREATE INDEX IF NOT EXISTS idx_ratings_created_at ON ratings(created_at);
 CREATE INDEX IF NOT EXISTS idx_outage_votes_created_at ON outage_votes(created_at);
 CREATE INDEX IF NOT EXISTS idx_outage_votes_is_active ON outage_votes(is_active);
+CREATE INDEX IF NOT EXISTS idx_comment_likes_rating_id ON comment_likes(rating_id);
 
 -- Enable Row Level Security-- Enable RLS on all tables
 ALTER TABLE batches ENABLE ROW LEVEL SECURITY;
 ALTER TABLE batch_votes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ratings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE outage_votes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE comment_likes ENABLE ROW LEVEL SECURITY;
 
 -- Drop existing policies if they exist
 DROP POLICY IF EXISTS "Allow public read access on batches" ON batches;
@@ -172,6 +195,15 @@ CREATE POLICY "Allow public read access on outage_votes" ON outage_votes FOR SEL
 CREATE POLICY "Allow public insert on outage_votes" ON outage_votes FOR INSERT WITH CHECK (true);
 CREATE POLICY "Allow public update on outage_votes" ON outage_votes FOR UPDATE USING (true);
 CREATE POLICY "Allow public delete on outage_votes" ON outage_votes FOR DELETE USING (true);
+
+-- Policies for comment_likes
+DROP POLICY IF EXISTS "Allow public read access on comment_likes" ON comment_likes;
+DROP POLICY IF EXISTS "Allow public insert on comment_likes" ON comment_likes;
+DROP POLICY IF EXISTS "Allow public delete on comment_likes" ON comment_likes;
+
+CREATE POLICY "Allow public read access on comment_likes" ON comment_likes FOR SELECT USING (true);
+CREATE POLICY "Allow public insert on comment_likes" ON comment_likes FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow public delete on comment_likes" ON comment_likes FOR DELETE USING (true);
 
 -- Enable RLS on availability_state table
 ALTER TABLE availability_state ENABLE ROW LEVEL SECURITY;

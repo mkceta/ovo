@@ -56,6 +56,8 @@ interface Comment {
   }
   createdAt: string
   imageUrl?: string | null
+  likesCount?: number
+  userHasLiked?: boolean
 }
 
 export default function Home() {
@@ -77,6 +79,7 @@ export default function Home() {
     availableVotes: 0,
     unavailableVotes: 0
   })
+  const [availabilityLoading, setAvailabilityLoading] = useState(true)
   const [comments, setComments] = useState<Comment[]>([])
   const [loadingComments, setLoadingComments] = useState(false)
   const [imageFile, setImageFile] = useState<File | null>(null)
@@ -120,6 +123,8 @@ export default function Home() {
           availableVotes: availabilityData.availableVotes,
           unavailableVotes: availabilityData.unavailableVotes
         })
+        // First load completed
+        setAvailabilityLoading(false)
         
         // Load comments only if tortilla is available
         if (availabilityData.isAvailable) {
@@ -131,11 +136,36 @@ export default function Home() {
     }
   }
 
+  // Toggle like on a comment
+  const toggleLike = async (ratingId: string) => {
+    try {
+      const response = await fetch('/api/ratings/comments/likes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ratingId, fingerprint })
+      })
+      const data = await response.json()
+      if (response.ok) {
+        setComments(prev => prev.map(c => {
+          if (c.id !== ratingId) return c
+          const nextCount = typeof data.likesCount === 'number' ? data.likesCount : (c.likesCount || 0)
+          return { ...c, likesCount: nextCount, userHasLiked: data.liked }
+        }))
+      } else {
+        setMessage(`Error: ${data.error}`)
+      }
+    } catch (e) {
+      setMessage('Error al dar like')
+    }
+  }
+
   // Load comments
   const loadComments = async () => {
     setLoadingComments(true)
     try {
-      const response = await fetch('/api/ratings/comments')
+      const params = new URLSearchParams()
+      if (fingerprint) params.set('fingerprint', fingerprint)
+      const response = await fetch(`/api/ratings/comments?${params.toString()}`)
       if (response.ok) {
         const data = await response.json()
         setComments(data.comments || [])
@@ -304,28 +334,41 @@ export default function Home() {
 
       <div className="main-content">
         {/* Tortilla Status */}
-        <div className={`tortilla-status ${availabilityState.isAvailable ? 'available' : 'unavailable'}`}>
-          <div className="status-indicator">
-            <div className={`status-dot ${availabilityState.isAvailable ? 'available' : 'unavailable'}`}></div>
-            <h2>{availabilityState.isAvailable ? 'HAY TORTILLA' : 'NO HAY TORTILLA'}</h2>
+        {availabilityLoading ? (
+          <div className="tortilla-status">
+            <div className="status-indicator">
+              <div className="status-dot available"></div>
+              <h2>Hablando con Lázaro...</h2>
+            </div>
+            <div className="status-skeleton">
+              <div className="skeleton-bar" style={{ width: '60%' }}></div>
+              <div className="skeleton-bar" style={{ width: '40%' }}></div>
+            </div>
           </div>
-          
-          <div className="vote-counts">
-            {!availabilityState.isAvailable && (
-              // When no tortilla, show only available votes if > 0
-              availabilityState.availableVotes > 0 ? (
-                <div className="vote-item">
-                  <span className="vote-number available">{availabilityState.availableVotes}</span>
-                  <span className="vote-label">persona{availabilityState.availableVotes > 1 ? 's' : ''} dice{availabilityState.availableVotes > 1 ? 'n' : ''} que hay tortilla...</span>
-                </div>
-              ) : (
-                <div className="no-votes">
-                  <span className="no-votes-text">Si ves tortilla haz click en el botón de abajo.</span>
-                </div>
-              )
-            )}
+        ) : (
+          <div className={`tortilla-status ${availabilityState.isAvailable ? 'available' : 'unavailable'}`}>
+            <div className="status-indicator">
+              <div className={`status-dot ${availabilityState.isAvailable ? 'available' : 'unavailable'}`}></div>
+              <h2>{availabilityState.isAvailable ? 'HAY TORTILLA' : 'NO HAY TORTILLA'}</h2>
+            </div>
+            
+            <div className="vote-counts">
+              {!availabilityState.isAvailable && (
+                // When no tortilla, show only available votes if > 0
+                availabilityState.availableVotes > 0 ? (
+                  <div className="vote-item">
+                    <span className="vote-number available">{availabilityState.availableVotes}</span>
+                    <span className="vote-label">persona{availabilityState.availableVotes > 1 ? 's' : ''} dice{availabilityState.availableVotes > 1 ? 'n' : ''} que hay tortilla...</span>
+                  </div>
+                ) : (
+                  <div className="no-votes">
+                    <span className="no-votes-text">Si ves tortilla haz click en el botón de abajo.</span>
+                  </div>
+                )
+              )}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Current Ratings Display */}
         {availabilityState.isAvailable && currentRatings && (
@@ -438,6 +481,20 @@ export default function Home() {
                         <div className="comment-detail-item">
                           <span className="comment-detail-label">Temperatura</span>
                           <span className="comment-detail-value">{comment.scores.temperatura}</span>
+                        </div>
+                        <div className="comment-detail-item">
+                          <button
+                            className={`like-btn ${comment.userHasLiked ? 'liked' : ''}`}
+                            onClick={() => toggleLike(comment.id)}
+                            title={comment.userHasLiked ? 'Quitar like' : 'Dar like'}
+                            aria-pressed={comment.userHasLiked ? 'true' : 'false'}
+                            aria-label={comment.userHasLiked ? 'Quitar like' : 'Dar like'}
+                          >
+                            <svg className="like-icon" viewBox="0 0 24 24" aria-hidden="true">
+                              <path d="M12.1 8.64l-.1.1-.11-.11C10.14 6.83 7.1 7.24 5.6 9.09c-1.5 1.85-1.23 4.6.62 6.1l5.78 4.66c.01.01.03.02.05.03.05.03.11.05.17.07.06.02.12.03.18.03s.12-.01.18-.03c.06-.02.12-.04.17-.07.02-.01.04-.02.05-.03l5.78-4.66c1.85-1.5 2.12-4.25.62-6.1-1.5-1.85-4.54-2.26-6.29-.45z"/>
+                            </svg>
+                            <span className="like-count">{comment.likesCount ?? 0}</span>
+                          </button>
                         </div>
                       </div>
                     </div>
