@@ -20,6 +20,7 @@ export async function GET(req: NextRequest) {
         temperatura,
         score_overall,
         comment,
+        image_url,
         created_at
       `)
       .not('comment', 'is', null)
@@ -44,7 +45,8 @@ export async function GET(req: NextRequest) {
         cuajada: rating.cuajada,
         temperatura: rating.temperatura
       },
-      createdAt: rating.created_at
+      createdAt: rating.created_at,
+      imageUrl: rating.image_url || null
     })) || []
 
     return NextResponse.json({ 

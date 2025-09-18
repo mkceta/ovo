@@ -55,6 +55,7 @@ interface Comment {
     temperatura: number
   }
   createdAt: string
+  imageUrl?: string | null
 }
 
 export default function Home() {
@@ -78,6 +79,8 @@ export default function Home() {
   })
   const [comments, setComments] = useState<Comment[]>([])
   const [loadingComments, setLoadingComments] = useState(false)
+  const [imageFile, setImageFile] = useState<File | null>(null)
+  const [imagePreview, setImagePreview] = useState<string | null>(null)
 
   // Generate a simple fingerprint
   useEffect(() => {
@@ -93,7 +96,7 @@ export default function Home() {
   // Auto-hide message toast after 3 seconds
   useEffect(() => {
     if (!message) return
-    const t = setTimeout(() => setMessage(''), 3000)
+    const t = setTimeout(() => setMessage(''), 2500)
     return () => clearTimeout(t)
   }, [message])
 
@@ -237,19 +240,35 @@ export default function Home() {
   const submitRating = async () => {
     setLoading(true)
     try {
-      const response = await fetch('/api/ratings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          batchId: null, // No longer needed
-          sabor: rating.sabor,
-          jugosidad: rating.jugosidad,
-          cuajada: rating.cuajada,
-          temperatura: rating.temperatura,
-          comment: rating.comment || null,
-          fingerprint
+      let response: Response
+      if (imageFile) {
+        const form = new FormData()
+        form.append('sabor', String(rating.sabor))
+        form.append('jugosidad', String(rating.jugosidad))
+        form.append('cuajada', String(rating.cuajada))
+        form.append('temperatura', String(rating.temperatura))
+        if (rating.comment) form.append('comment', rating.comment)
+        form.append('fingerprint', fingerprint)
+        form.append('image', imageFile)
+        response = await fetch('/api/ratings', {
+          method: 'POST',
+          body: form
         })
-      })
+      } else {
+        response = await fetch('/api/ratings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            batchId: null, // No longer needed
+            sabor: rating.sabor,
+            jugosidad: rating.jugosidad,
+            cuajada: rating.cuajada,
+            temperatura: rating.temperatura,
+            comment: rating.comment || null,
+            fingerprint
+          })
+        })
+      }
       
       const data = await response.json()
       if (response.ok) {
@@ -257,6 +276,9 @@ export default function Home() {
         setShowRatingForm(false)
         setSelectedBatch(null)
         setRating({ sabor: 5, jugosidad: 5, cuajada: 5, temperatura: 5, comment: '' })
+        if (imagePreview) URL.revokeObjectURL(imagePreview)
+        setImageFile(null)
+        setImagePreview(null)
         loadTodayStatus()
         // Reload comments if tortilla is available
         if (availabilityState.isAvailable) {
@@ -394,6 +416,11 @@ export default function Home() {
                       <div className="comment-text">
                         "{comment.comment}"
                       </div>
+                      {comment.imageUrl && (
+                        <div className="comment-image" style={{ marginTop: 8 }}>
+                          <img src={comment.imageUrl} alt="Foto de la reseña" style={{ maxWidth: '100%', borderRadius: 8 }} />
+                        </div>
+                      )}
                       
                       <div className="comment-details">
                         <div className="comment-detail-item">
@@ -533,6 +560,31 @@ export default function Home() {
                 <div className="char-count">
                   {rating.comment?.length || 0}/120
                 </div>
+              </div>
+
+              <div className="image-upload-section">
+                <label className="image-upload-label">Añadir foto (opcional)</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] || null
+                    if (imagePreview) URL.revokeObjectURL(imagePreview)
+                    if (file) {
+                      setImageFile(file)
+                      const preview = URL.createObjectURL(file)
+                      setImagePreview(preview)
+                    } else {
+                      setImageFile(null)
+                      setImagePreview(null)
+                    }
+                  }}
+                />
+                {imagePreview && (
+                  <div className="image-preview">
+                    <img src={imagePreview} alt="Previsualización" style={{ maxWidth: '100%', borderRadius: 8 }} />
+                  </div>
+                )}
               </div>
 
               <div className="rating-actions">
