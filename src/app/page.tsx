@@ -87,7 +87,7 @@ export default function Home() {
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
 
-  // Generate a simple fingerprint
+  // Initialize a persistent fingerprint (once)
   useEffect(() => {
     let fp = ''
     try {
@@ -98,12 +98,19 @@ export default function Home() {
       try { localStorage.setItem('ovo_fp', fp) } catch {}
     }
     setFingerprint(fp)
-    loadTodayStatus()
-    
-    // Refresh data every 2.5 seconds
-    const interval = setInterval(loadTodayStatus, 2500)
-    return () => clearInterval(interval)
   }, [])
+
+  // Start polling only after fingerprint is ready, so requests include it
+  useEffect(() => {
+    if (!fingerprint) return
+    // Initial load
+    loadTodayStatus()
+    // Refresh data every 2.5 seconds
+    const interval = setInterval(() => {
+      loadTodayStatus()
+    }, 2500)
+    return () => clearInterval(interval)
+  }, [fingerprint])
 
   // Auto-hide message toast after 3 seconds
   useEffect(() => {
