@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Image from 'next/image'
 import lazaroImg from './lazaro.png'
 
@@ -82,6 +82,8 @@ export default function Home() {
   const [availabilityLoading, setAvailabilityLoading] = useState(true)
   const [comments, setComments] = useState<Comment[]>([])
   const [loadingComments, setLoadingComments] = useState(false)
+  const firstCommentsLoad = useRef(true)
+  const [newCommentIds, setNewCommentIds] = useState<Set<string>>(new Set())
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
 
@@ -113,15 +115,25 @@ export default function Home() {
       
       if (statusResponse.ok) {
         const data = await statusResponse.json()
-        setTodayStatus(data)
+        // Only update if something actually changed to avoid flashing
+        setTodayStatus(prev => {
+          const prevStr = prev ? JSON.stringify(prev) : ''
+          const nextStr = JSON.stringify(data)
+          return prevStr !== nextStr ? data : prev
+        })
       }
       
       if (availabilityResponse.ok) {
         const availabilityData = await availabilityResponse.json()
-        setAvailabilityState({
-          isAvailable: availabilityData.isAvailable,
-          availableVotes: availabilityData.availableVotes,
-          unavailableVotes: availabilityData.unavailableVotes
+        setAvailabilityState(prev => {
+          const next = {
+            isAvailable: availabilityData.isAvailable,
+            availableVotes: availabilityData.availableVotes,
+            unavailableVotes: availabilityData.unavailableVotes
+          }
+          return (prev.isAvailable !== next.isAvailable ||
+                  prev.availableVotes !== next.availableVotes ||
+                  prev.unavailableVotes !== next.unavailableVotes) ? next : prev
         })
         // First load completed
         setAvailabilityLoading(false)
@@ -161,19 +173,60 @@ export default function Home() {
 
   // Load comments
   const loadComments = async () => {
-    setLoadingComments(true)
+    // Only show the loader on the very first fetch
+    if (firstCommentsLoad.current) setLoadingComments(true)
     try {
       const params = new URLSearchParams()
       if (fingerprint) params.set('fingerprint', fingerprint)
       const response = await fetch(`/api/ratings/comments?${params.toString()}`)
       if (response.ok) {
         const data = await response.json()
-        setComments(data.comments || [])
+        const incoming: Comment[] = data.comments || []
+
+        // Diff merge to avoid re-render flicker and preserve existing items' identity
+        setComments(prev => {
+          const prevById = new Map(prev.map(c => [c.id, c]))
+          const next: Comment[] = []
+          const newlyAddedIds: string[] = []
+          for (const inc of incoming) {
+            const existing = prevById.get(inc.id)
+            if (existing) {
+              // Preserve object identity when unchanged to reduce repaint
+              const merged = { ...existing, ...inc }
+              next.push(merged)
+            } else {
+              next.push(inc)
+              newlyAddedIds.push(inc.id)
+            }
+          }
+
+          // Mark new ids for a brief entrance animation
+          if (newlyAddedIds.length) {
+            setNewCommentIds(current => {
+              const copy = new Set(current)
+              newlyAddedIds.forEach(id => copy.add(id))
+              return copy
+            })
+            // Remove the marker after animation ends
+            setTimeout(() => {
+              setNewCommentIds(current => {
+                const copy = new Set(current)
+                newlyAddedIds.forEach(id => copy.delete(id))
+                return copy
+              })
+            }, 500)
+          }
+
+          return next
+        })
       }
     } catch (error) {
       console.error('Error loading comments:', error)
     }
-    setLoadingComments(false)
+    if (firstCommentsLoad.current) {
+      setLoadingComments(false)
+      firstCommentsLoad.current = false
+    }
   }
 
 
@@ -192,7 +245,7 @@ export default function Home() {
       
       const data = await response.json()
       if (response.ok) {
-        setMessage(`Voto registrado: ${data.votes.outage} no hay tortilla, ${data.votes.working} hay tortilla`)
+        setMessage(`Aviso registrado. (${data.votes.working} persona dice que hay tortilla)`)
         loadTodayStatus()
       } else {
         setMessage(`Error: ${data.error}`)
@@ -444,7 +497,7 @@ export default function Home() {
                 </div>
                 <div className="comments-list">
                   {comments.map((comment) => (
-                    <div key={comment.id} className="comment-item">
+                    <div key={comment.id} className={`comment-item ${newCommentIds.has(comment.id) ? 'new' : ''}`}>
                       <div className="comment-header">
                         <div className="comment-score">
                           <span className="comment-overall-score">
