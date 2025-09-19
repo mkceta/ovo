@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import Link from 'next/link'
+import TopWeeklyClient from './TopWeeklyClient'
 
 type HistoryItem = {
   date: string
@@ -142,11 +143,16 @@ export default async function HistoryPage() {
   return (
     <div className="history-page">
       <div className="history-header">
-        <h1>Historial de Tortillas</h1>
+        <h1>Estadísticas</h1>
         <Link href="/" className="back-link">← Volver</Link>
       </div>
 
       <div className="history-grid">
+        <section className="history-card">
+          <h2>Top 10 comentarios de la semana</h2>
+          <TopWeeklyClient initialTop={topComments} />
+        </section>
+
         <section className="history-card">
           <h2>Historial</h2>
           <div className="history-table">
@@ -164,28 +170,11 @@ export default async function HistoryPage() {
             ))}
           </div>
         </section>
-
-        <section className="history-card">
-          <h2>Top 10 comentarios de la semana</h2>
-          <div className="top-list">
-            {topComments.length === 0 && <div className="no-top">Sin comentarios esta semana</div>}
-            {topComments.map((c, idx) => (
-              <div key={c.id} className={`top-item ${idx===0?'gold':''} ${idx===1?'silver':''} ${idx===2?'bronze':''}`}>
-                <div className="top-meta">
-                  <span className="top-date">{new Date(c.createdAt).toLocaleDateString('es-ES')}</span>
-                  {typeof c.average === 'number' && (
-                    <span className="top-score">{c.average.toFixed(1)}/10</span>
-                  )}
-                </div>
-                <div className="top-comment">{c.comment}</div>
-                <div className="top-reactions">Reacciones: {c.reactions}</div>
-              </div>
-            ))}
-          </div>
-        </section>
       </div>
     </div>
   )
 }
+
+// TopWeeklyClient es un Client Component y puede usarse directamente aquí
 
 
