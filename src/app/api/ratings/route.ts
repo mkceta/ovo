@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Validate comment length
-    if (comment && comment.length > 120) {
+    if (comment && comment.length > 255) {
       return NextResponse.json({ error: 'comment_too_long' }, { status: 400 })
     }
 

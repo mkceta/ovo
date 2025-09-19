@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS ratings (
   cuajada INTEGER NOT NULL CHECK (cuajada >= 1 AND cuajada <= 10),
   temperatura INTEGER NOT NULL CHECK (temperatura >= 1 AND temperatura <= 10),
   score_overall INTEGER,
-  comment TEXT CHECK (LENGTH(comment) <= 120),
+  comment TEXT CHECK (LENGTH(comment) <= 255),
   client_fingerprint TEXT NOT NULL,
   ip_hash TEXT NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()

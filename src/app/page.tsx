@@ -735,12 +735,12 @@ export default function Home() {
                 <textarea
                   value={rating.comment}
                   onChange={(e) => setRating(prev => ({ ...prev, comment: e.target.value }))}
-                  maxLength={120}
+                  maxLength={255}
                   placeholder="Comentario opcional..."
                   className="comment-input"
                 />
                 <div className="char-count">
-                  {rating.comment?.length || 0}/120
+                  {rating.comment?.length || 0}/255
                 </div>
               </div>
 
