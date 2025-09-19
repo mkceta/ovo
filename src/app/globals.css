@@ -34,6 +34,27 @@ button {
   margin-bottom: 1rem;
 }
 
+/* Stats floating button */
+.stats-btn {
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  z-index: 1200;
+  background: #111111;
+  border: 1px solid #ffd700;
+  color: #ffffff;
+  padding: 8px 12px;
+  border-radius: 9999px;
+  font-weight: 700;
+  text-decoration: none;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.stats-btn:hover { background: #1a1a1a; border-color: #ffed4e; }
+.stats-icon { width: 16px; height: 16px; fill: #ffd700; }
+
 .header h1 {
   font-size: 2.5rem;
   font-weight: 800;

@@ -430,6 +430,12 @@ export default function Home() {
 
   return (
     <div className="app">
+      <Link href="/history" className="stats-btn" aria-label="Ver estadísticas">
+        <span className="stats-text">Stats</span>
+        <svg className="stats-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M13.172 12l-4.95-4.95 1.414-1.414L16 12l-6.364 6.364-1.414-1.414z"/>
+        </svg>
+      </Link>
       <div className="header">
         <h2>, , ,</h2>
         <h1>OvO</h1>
