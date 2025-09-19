@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import Image from 'next/image'
+import Link from 'next/link'
 import lazaroImg from './lazaro.png'
 
 interface Batch {
@@ -58,6 +59,8 @@ interface Comment {
   imageUrl?: string | null
   likesCount?: number
   userHasLiked?: boolean
+  reactions?: Record<string, number>
+  userReactions?: string[]
 }
 
 export default function Home() {
@@ -86,6 +89,9 @@ export default function Home() {
   const [newCommentIds, setNewCommentIds] = useState<Set<string>>(new Set())
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
+  const [hasRatedToday, setHasRatedToday] = useState<boolean>(false)
+  const [endedTortillaClicked, setEndedTortillaClicked] = useState<boolean>(false)
+  const [lightboxImage, setLightboxImage] = useState<string | null>(null)
 
   // Initialize a persistent fingerprint (once)
   useEffect(() => {
@@ -98,6 +104,12 @@ export default function Home() {
       try { localStorage.setItem('ovo_fp', fp) } catch {}
     }
     setFingerprint(fp)
+    // Restore daily flags
+    try {
+      const todayKey = new Date().toISOString().slice(0,10)
+      const ratedKey = `ovo_rated_${todayKey}`
+      setHasRatedToday(!!localStorage.getItem(ratedKey))
+    } catch {}
   }, [])
 
   // Start polling only after fingerprint is ready, so requests include it
@@ -162,27 +174,43 @@ export default function Home() {
     }
   }
 
-  // Toggle like on a comment
-  const toggleLike = async (ratingId: string) => {
+  // Likes removed (using reactions only)
+
+  // Toggle emoji reaction
+  const toggleReaction = async (ratingId: string, reaction: '🔥' | '😂' | '🐐') => {
     try {
-      const response = await fetch('/api/ratings/comments/likes', {
+      const response = await fetch('/api/ratings/comments/reactions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ratingId, fingerprint })
+        body: JSON.stringify({ ratingId, fingerprint, reaction })
       })
       const data = await response.json()
       if (response.ok) {
         setComments(prev => prev.map(c => {
           if (c.id !== ratingId) return c
-          const nextCount = typeof data.likesCount === 'number' ? data.likesCount : (c.likesCount || 0)
-          return { ...c, likesCount: nextCount, userHasLiked: data.liked }
+          const currentCounts = { '🔥': 0, '😂': 0, '🐐': 0, ...(c.reactions || {}) } as Record<string, number>
+          if (data.counts) {
+            return { ...c, reactions: { ...currentCounts, ...data.counts }, userReactions: updateUserReactions(c.userReactions || [], reaction, data.active) }
+          }
+          // Fallback adjust single reaction optimistically
+          const next = { ...currentCounts }
+          next[reaction] = Math.max(0, next[reaction] + (data.active ? 1 : -1))
+          const nextUser = updateUserReactions(c.userReactions || [], reaction, data.active)
+          return { ...c, reactions: next, userReactions: nextUser }
         }))
       } else {
         setMessage(`Error: ${data.error}`)
       }
     } catch (e) {
-      setMessage('Error al dar like')
+      setMessage('Error al reaccionar')
     }
+  }
+
+  const updateUserReactions = (current: string[], emoji: string, active: boolean) => {
+    const set = new Set(current)
+    if (active) set.add(emoji)
+    else set.delete(emoji)
+    return Array.from(set)
   }
 
   // Load comments
@@ -273,6 +301,7 @@ export default function Home() {
   // End tortilla availability
   const endTortillaAvailability = async () => {
     setLoading(true)
+    setEndedTortillaClicked(true)
     try {
       const response = await fetch('/api/availability/end', {
         method: 'POST',
@@ -290,9 +319,11 @@ export default function Home() {
         loadTodayStatus()
       } else {
         setMessage(`Error: ${data.error}`)
+        setEndedTortillaClicked(false)
       }
     } catch (error) {
       setMessage('Error al marcar tortilla como agotada')
+      setEndedTortillaClicked(false)
     }
     setLoading(false)
   }
@@ -376,6 +407,12 @@ export default function Home() {
         if (imagePreview) URL.revokeObjectURL(imagePreview)
         setImageFile(null)
         setImagePreview(null)
+        setHasRatedToday(true)
+        try {
+          const todayKey = new Date().toISOString().slice(0,10)
+          const ratedKey = `ovo_rated_${todayKey}`
+          localStorage.setItem(ratedKey, '1')
+        } catch {}
         loadTodayStatus()
         // Reload comments if tortilla is available
         if (availabilityState.isAvailable) {
@@ -498,6 +535,48 @@ export default function Home() {
           </div>
         )}
 
+        {/* Actions section ABOVE comments */}
+        {!availabilityState.isAvailable && (
+          <div className="action-section">
+            <div className="action-grid single-button">
+              <button
+                onClick={() => voteOutage('working')}
+                disabled={loading}
+                className="action-btn success"
+              >
+                <span>HAY TORTILLA!</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {availabilityState.isAvailable && (
+          <div className="rating-available">
+            <h3>¡LÁZARO TE ESPERA!</h3>
+            <p>¡Pídete un pinchito de tortilla y valóralo!</p>
+            <div className="rating-actions">
+              {!hasRatedToday && (
+                <button
+                  onClick={() => setShowRatingForm(true)}
+                  className="rate-now-btn"
+                  disabled={loading}
+                >
+                  Valorar tortilla
+                </button>
+              )}
+              {!endedTortillaClicked && (
+                <button
+                  onClick={endTortillaAvailability}
+                  className="end-tortilla-btn"
+                  disabled={loading}
+                >
+                  Se acabó la tortilla
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Comments Section */}
         {availabilityState.isAvailable && (
           <div className="comments-section">
@@ -523,14 +602,24 @@ export default function Home() {
                         </span>
                       </div>
                       
-                      <div className="comment-text">
-                        {comment.comment}
-                      </div>
-                      {comment.imageUrl && (
-                        <div className="comment-image" style={{ marginTop: 8 }}>
-                          <img src={comment.imageUrl} alt="Foto de la reseña" style={{ maxWidth: '100%', borderRadius: 8 }} />
+                      <div className="comment-main">
+                        <div className="comment-text">
+                          {comment.comment}
                         </div>
-                      )}
+                        {comment.imageUrl && (
+                          <button
+                            className="comment-image-container"
+                            onClick={() => setLightboxImage(comment.imageUrl || null)}
+                            aria-label="Ver imagen ampliada"
+                          >
+                            <img
+                              src={comment.imageUrl}
+                              alt="Foto de la reseña"
+                              className="comment-image-thumb"
+                            />
+                          </button>
+                        )}
+                      </div>
                       
                       <div className="comment-details">
                         <div className="comment-detail-item">
@@ -550,19 +639,27 @@ export default function Home() {
                           <span className="comment-detail-value">{comment.scores.temperatura}</span>
                         </div>
                         <div className="comment-detail-item">
-                          <button
-                            className={`like-btn ${comment.userHasLiked ? 'liked' : ''}`}
-                            onClick={() => toggleLike(comment.id)}
-                            title={comment.userHasLiked ? 'Quitar like' : 'Dar like'}
-                            aria-pressed={comment.userHasLiked ? 'true' : 'false'}
-                            aria-label={comment.userHasLiked ? 'Quitar like' : 'Dar like'}
-                          >
-                            <svg className="like-icon" viewBox="0 0 24 24" aria-hidden="true">
-                              <path d="M12.1 8.64l-.1.1-.11-.11C10.14 6.83 7.1 7.24 5.6 9.09c-1.5 1.85-1.23 4.6.62 6.1l5.78 4.66c.01.01.03.02.05.03.05.03.11.05.17.07.06.02.12.03.18.03s.12-.01.18-.03c.06-.02.12-.04.17-.07.02-.01.04-.02.05-.03l5.78-4.66c1.85-1.5 2.12-4.25.62-6.1-1.5-1.85-4.54-2.26-6.29-.45z"/>
-                            </svg>
-                            <span className="like-count">{comment.likesCount ?? 0}</span>
-                          </button>
+                          <div className="reactions">
+                            {(['🔥','😂','🐐'] as const).map((emoji) => {
+                              const active = comment.userReactions?.includes(emoji)
+                              const count = comment.reactions?.[emoji] || 0
+                              return (
+                                <button
+                                  key={emoji}
+                                  className={`reaction-btn ${active ? 'active' : ''}`}
+                                  onClick={() => toggleReaction(comment.id, emoji)}
+                                  aria-pressed={active ? 'true' : 'false'}
+                                  aria-label={`Reaccionar con ${emoji}`}
+                                  title={active ? `Quitar ${emoji}` : `Añadir ${emoji}`}
+                                >
+                                  <span className="reaction-emoji">{emoji}</span>
+                                  <span className="reaction-count">{count}</span>
+                                </button>
+                              )
+                            })}
+                          </div>
                         </div>
+                        {/* Likes removed */}
                       </div>
                     </div>
                   ))}
@@ -573,45 +670,6 @@ export default function Home() {
                 Nadie ha hablado de esta tortilla.<br/>¡Sé el primero en comentar!
               </div>
             )}
-          </div>
-        )}
-
-        {/* Action Buttons */}
-        {!availabilityState.isAvailable && (
-          <div className="action-section">
-            <div className="action-grid single-button">
-              <button
-                onClick={() => voteOutage('working')}
-                disabled={loading}
-                className="action-btn success"
-              >
-                <span>HAY TORTILLA!</span>
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Rating Available */}
-        {availabilityState.isAvailable && (
-          <div className="rating-available">
-            <h3>¡LÁZARO TE ESPERA!</h3>
-            <p>¡Pídete un pinchito de tortilla y valóralo!</p>
-            <div className="rating-actions">
-              <button
-                onClick={() => setShowRatingForm(true)}
-                className="rate-now-btn"
-                disabled={loading}
-              >
-                Valorar tortilla
-              </button>
-              <button
-                onClick={endTortillaAvailability}
-                className="end-tortilla-btn"
-                disabled={loading}
-              >
-                Se acabó la tortilla
-              </button>
-            </div>
           </div>
         )}
 
@@ -730,15 +788,31 @@ export default function Home() {
             {message}
           </div>
         )}
+      {/* Image Lightbox */}
+      {lightboxImage && (
+        <div
+          className="image-lightbox"
+          onClick={() => setLightboxImage(null)}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="image-lightbox-content" onClick={(e) => e.stopPropagation()}>
+            <button className="image-lightbox-close" aria-label="Cerrar" onClick={() => setLightboxImage(null)}>×</button>
+            <img src={lightboxImage} alt="Imagen ampliada" className="image-lightbox-img" />
+          </div>
+        </div>
+      )}
       </div>
 
       {/* Lázaro mascot image */}
-      <Image
-        src={lazaroImg}
-        alt="Lázaro"
-        className="lazaro-image"
-        priority
-      />
+      <Link href="/history" aria-label="Ver historial de tortillas">
+        <Image
+          src={lazaroImg}
+          alt="Lázaro"
+          className="lazaro-image"
+          priority
+        />
+      </Link>
     </div>
   )
 }

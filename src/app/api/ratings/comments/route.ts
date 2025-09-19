@@ -40,6 +40,9 @@ export async function GET(req: NextRequest) {
     const ratingIds = (ratings || []).map(r => r.id)
     let likesByRating: Record<string, number> = {}
     let likedSet: Set<string> = new Set()
+    // Prepare reactions aggregates
+    let reactionsByRating: Record<string, Record<string, number>> = {}
+    let userReactionsByRating: Record<string, Set<string>> = {}
 
     if (ratingIds.length > 0) {
       // Total likes per rating
@@ -73,6 +76,44 @@ export async function GET(req: NextRequest) {
           likedSet = new Set(userLikes.map((u: any) => u.rating_id))
         }
       }
+
+      // Fetch reactions aggregate (rating_id, reaction)
+      const { data: reactionRows, error: reactionsError } = await supabaseAdmin
+        .from('comment_reactions')
+        .select('rating_id, reaction')
+        .in('rating_id', ratingIds)
+
+      if (reactionsError) {
+        console.error('Error fetching reactions:', reactionsError)
+      } else if (reactionRows) {
+        reactionsByRating = reactionRows.reduce((acc: Record<string, Record<string, number>>, row: any) => {
+          const rid = row.rating_id
+          const emoji = row.reaction
+          acc[rid] = acc[rid] || {}
+          acc[rid][emoji] = (acc[rid][emoji] || 0) + 1
+          return acc
+        }, {})
+      }
+
+      // Fetch user reactions if fingerprint provided
+      if (fingerprint) {
+        const { data: userReactionRows, error: userReactionErr } = await supabaseAdmin
+          .from('comment_reactions')
+          .select('rating_id, reaction')
+          .eq('client_fingerprint', fingerprint)
+          .in('rating_id', ratingIds)
+
+        if (userReactionErr) {
+          console.error('Error fetching user reactions:', userReactionErr)
+        } else if (userReactionRows) {
+          userReactionsByRating = userReactionRows.reduce((acc: Record<string, Set<string>>, row: any) => {
+            const rid = row.rating_id
+            if (!acc[rid]) acc[rid] = new Set()
+            acc[rid].add(row.reaction)
+            return acc
+          }, {})
+        }
+      }
     }
 
     // Format the comments data
@@ -89,7 +130,9 @@ export async function GET(req: NextRequest) {
       createdAt: rating.created_at,
       imageUrl: rating.image_url || null,
       likesCount: likesByRating[rating.id] || 0,
-      userHasLiked: likedSet.has(rating.id)
+      userHasLiked: likedSet.has(rating.id),
+      reactions: reactionsByRating[rating.id] || {},
+      userReactions: Array.from(userReactionsByRating[rating.id] || [])
     })) || []
 
     return NextResponse.json({ comments, total: comments.length })

@@ -14,13 +14,26 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "OvO",
+  title: {
+    default: "OvO | Tortilla de la FIC en tiempo real",
+    template: "%s | OvO"
+  },
   description: "Consulta y valora en tiempo real la tortilla de la cafetería de la FIC.",
   icons: {
     icon: "/src/app/favicon.ico", 
   },
+  metadataBase: new URL("https://ovo-fic.vercel.app"),
+  keywords: [
+    "tortilla",
+    "FIC",
+    "cafetería",
+    "valoraciones",
+    "OvO",
+    "Universidade da Coruña",
+    "Lázaro"
+  ],
   openGraph: {
-    title: "OvO",
+    title: "OvO | Tortilla de la FIC en tiempo real",
     description: "Consulta y valora en tiempo real la tortilla de la cafetería de la FIC.",
     url: "https://ovo-fic.vercel.app", // cambia por tu dominio si lo personalizas
     siteName: "OvO",
@@ -29,7 +42,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "OvO",
+    title: "OvO | Tortilla de la FIC en tiempo real",
     description: "Consulta y valora en tiempo real la tortilla de la cafetería de la FIC.",
   },
 };

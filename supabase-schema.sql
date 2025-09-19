@@ -71,6 +71,17 @@ CREATE TABLE IF NOT EXISTS comment_likes (
   UNIQUE (rating_id, client_fingerprint)
 );
 
+-- Comment reactions table (emoji reactions per rating/comment)
+CREATE TABLE IF NOT EXISTS comment_reactions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  rating_id UUID NOT NULL REFERENCES ratings(id) ON DELETE CASCADE,
+  reaction TEXT NOT NULL CHECK (reaction IN ('🔥','😂','🐐')),
+  client_fingerprint TEXT NOT NULL,
+  ip_hash TEXT NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE (rating_id, client_fingerprint, reaction)
+);
+
 -- Outage votes table (community reporting)
 CREATE TABLE IF NOT EXISTS outage_votes (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -159,6 +170,7 @@ CREATE INDEX IF NOT EXISTS idx_ratings_created_at ON ratings(created_at);
 CREATE INDEX IF NOT EXISTS idx_outage_votes_created_at ON outage_votes(created_at);
 CREATE INDEX IF NOT EXISTS idx_outage_votes_is_active ON outage_votes(is_active);
 CREATE INDEX IF NOT EXISTS idx_comment_likes_rating_id ON comment_likes(rating_id);
+CREATE INDEX IF NOT EXISTS idx_comment_reactions_rating_id ON comment_reactions(rating_id);
 
 -- Enable Row Level Security-- Enable RLS on all tables
 ALTER TABLE batches ENABLE ROW LEVEL SECURITY;
@@ -166,6 +178,7 @@ ALTER TABLE batch_votes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ratings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE outage_votes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE comment_likes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE comment_reactions ENABLE ROW LEVEL SECURITY;
 
 -- Drop existing policies if they exist
 DROP POLICY IF EXISTS "Allow public read access on batches" ON batches;
@@ -205,6 +218,15 @@ CREATE POLICY "Allow public read access on comment_likes" ON comment_likes FOR S
 CREATE POLICY "Allow public insert on comment_likes" ON comment_likes FOR INSERT WITH CHECK (true);
 CREATE POLICY "Allow public delete on comment_likes" ON comment_likes FOR DELETE USING (true);
 
+-- Policies for comment_reactions
+DROP POLICY IF EXISTS "Allow public read access on comment_reactions" ON comment_reactions;
+DROP POLICY IF EXISTS "Allow public insert on comment_reactions" ON comment_reactions;
+DROP POLICY IF EXISTS "Allow public delete on comment_reactions" ON comment_reactions;
+
+CREATE POLICY "Allow public read access on comment_reactions" ON comment_reactions FOR SELECT USING (true);
+CREATE POLICY "Allow public insert on comment_reactions" ON comment_reactions FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow public delete on comment_reactions" ON comment_reactions FOR DELETE USING (true);
+
 -- Enable RLS on availability_state table
 ALTER TABLE availability_state ENABLE ROW LEVEL SECURITY;
 
@@ -224,3 +246,51 @@ $$ language 'plpgsql';
 -- Create triggers for automatic timestamp updates
 DROP TRIGGER IF EXISTS update_batches_updated_at ON batches;
 CREATE TRIGGER update_batches_updated_at BEFORE UPDATE ON batches FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- Archive tables to store deleted ratings and their comments/reactions
+CREATE TABLE IF NOT EXISTS archive_ratings (
+  id UUID PRIMARY KEY,
+  batch_id UUID,
+  sabor INTEGER,
+  jugosidad INTEGER,
+  cuajada INTEGER,
+  temperatura INTEGER,
+  score_overall INTEGER,
+  comment TEXT,
+  client_fingerprint TEXT,
+  ip_hash TEXT,
+  image_url TEXT,
+  created_at TIMESTAMP WITH TIME ZONE,
+  deleted_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS archive_comment_reactions (
+  id UUID PRIMARY KEY,
+  rating_id UUID,
+  reaction TEXT,
+  client_fingerprint TEXT,
+  ip_hash TEXT,
+  created_at TIMESTAMP WITH TIME ZONE,
+  deleted_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Function to archive rating and related reactions before delete
+CREATE OR REPLACE FUNCTION archive_rating_and_relations()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO archive_ratings (id, batch_id, sabor, jugosidad, cuajada, temperatura, score_overall, comment, client_fingerprint, ip_hash, image_url, created_at)
+  VALUES (OLD.id, OLD.batch_id, OLD.sabor, OLD.jugosidad, OLD.cuajada, OLD.temperatura, OLD.score_overall, OLD.comment, OLD.client_fingerprint, OLD.ip_hash, OLD.image_url, OLD.created_at);
+
+  INSERT INTO archive_comment_reactions (id, rating_id, reaction, client_fingerprint, ip_hash, created_at)
+  SELECT r.id, r.rating_id, r.reaction, r.client_fingerprint, r.ip_hash, r.created_at
+  FROM comment_reactions r WHERE r.rating_id = OLD.id;
+
+  RETURN OLD;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Trigger on ratings before delete
+DROP TRIGGER IF EXISTS trg_archive_rating_before_delete ON ratings;
+CREATE TRIGGER trg_archive_rating_before_delete
+BEFORE DELETE ON ratings
+FOR EACH ROW EXECUTE FUNCTION archive_rating_and_relations();
