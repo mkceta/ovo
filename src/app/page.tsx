@@ -524,7 +524,7 @@ export default function Home() {
                       </div>
                       
                       <div className="comment-text">
-                        "{comment.comment}"
+                        {comment.comment}
                       </div>
                       {comment.imageUrl && (
                         <div className="comment-image" style={{ marginTop: 8 }}>
