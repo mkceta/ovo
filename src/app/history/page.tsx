@@ -106,7 +106,7 @@ async function getData() {
       .from('comment_reactions')
       .select('rating_id')
       .in('rating_id', liveIds)
-    reactionCounts = (reacts || []).reduce((acc: Record<string, number>, row: any) => {
+    reactionCounts = (reacts || []).reduce((acc: Record<string, number>, row: { rating_id: string }) => {
       acc[row.rating_id] = (acc[row.rating_id] || 0) + 1
       return acc
     }, reactionCounts)
@@ -116,7 +116,7 @@ async function getData() {
       .from('archive_comment_reactions')
       .select('rating_id')
       .in('rating_id', archIds)
-    reactionCounts = (archReacts || []).reduce((acc: Record<string, number>, row: any) => {
+    reactionCounts = (archReacts || []).reduce((acc: Record<string, number>, row: { rating_id: string }) => {
       acc[row.rating_id] = (acc[row.rating_id] || 0) + 1
       return acc
     }, reactionCounts)
