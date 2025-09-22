@@ -17,7 +17,7 @@ export default function TopWeeklyClient({ initialTop }: { initialTop: TopComment
     let isMounted = true
     const load = async () => {
       try {
-        const res = await fetch('/api/history/top-comments')
+        const res = await fetch('/api/history/top-comments', { cache: 'no-store' })
         if (!res.ok) return
         const data = await res.json()
         if (isMounted && data && Array.isArray(data.top)) {
@@ -25,7 +25,8 @@ export default function TopWeeklyClient({ initialTop }: { initialTop: TopComment
         }
       } catch {}
     }
-    const interval = setInterval(load, 5000)
+    load()
+    const interval = setInterval(load, 4000)
     return () => { isMounted = false; clearInterval(interval) }
   }, [])
 

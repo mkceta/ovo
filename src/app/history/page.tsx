@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import Link from 'next/link'
 import TopWeeklyClient from './TopWeeklyClient'
+import HistoryBatchesClient from './HistoryBatchesClient'
 
 type HistoryItem = {
   date: string
@@ -155,6 +156,7 @@ export default async function HistoryPage() {
 
         <section className="history-card">
           <h2>Historial</h2>
+          <HistoryBatchesClient />
           <div className="history-table">
             <div className="history-row header">
               <div>Fecha</div>

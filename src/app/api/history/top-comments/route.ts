@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET(_req: NextRequest) {
   try {
     const weekStart = new Date()
@@ -62,7 +64,12 @@ export async function GET(_req: NextRequest) {
       .sort((a, b) => b.reactions - a.reactions)
       .slice(0, 10)
 
-    return NextResponse.json({ top })
+    return new NextResponse(JSON.stringify({ top }), {
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate'
+      }
+    })
   } catch (e) {
     console.error('Error fetching weekly top comments:', e)
     return NextResponse.json({ error: 'internal_server_error' }, { status: 500 })

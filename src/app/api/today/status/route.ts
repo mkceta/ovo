@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET(req: NextRequest) {
   try {
     // Get today's batches (no cafeteria filter needed)
@@ -81,7 +83,7 @@ export async function GET(req: NextRequest) {
       ? allRatings.reduce((sum, r) => sum + r.temperatura, 0) / allRatings.length 
       : null
 
-    return NextResponse.json({
+    return new NextResponse(JSON.stringify({
       today: today.toISOString().split('T')[0],
       batches: {
         active: activeBatches.length,
@@ -102,6 +104,11 @@ export async function GET(req: NextRequest) {
         temperatura: avgTemperatura
       },
       recentBatches: batches || []
+    }), {
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate'
+      }
     })
   } catch (error) {
     console.error('Error in today status:', error)
